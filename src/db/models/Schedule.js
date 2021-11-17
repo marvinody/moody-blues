@@ -3,7 +3,7 @@ const db = require('../db')
 
 const Schedule = db.define('schedule', {
   webhookURL: {
-    type: Sequelize.STRING,
+    type: Sequelize.TEXT,
     allowNull: false
   },
 })

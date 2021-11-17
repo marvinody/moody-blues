@@ -10,6 +10,10 @@ const Product = db.define('product', {
     type: Sequelize.STRING,
     allowNull: false
   },
+  title: {
+    type: Sequelize.TEXT,
+    allowNull: false,
+  },
   price: {
     type: Sequelize.INTEGER,
     allowNull: false,

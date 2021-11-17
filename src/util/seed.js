@@ -6,7 +6,7 @@ async function seed() {
   console.log('db synced!')
 
   const queries = await Promise.all([
-    SearchQuery.create({site: 'YAJ', query: '東方 ふもふも'}),
+    SearchQuery.create({site: 'YAJ', query: '東方 ふもふも', desc: '"touhou fumofumo"'}),
   ])
 
   console.log(`seeded ${queries.length} queries`)

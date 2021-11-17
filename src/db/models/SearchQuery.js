@@ -10,6 +10,9 @@ const SearchQuery = db.define('searchQuery', {
     type: Sequelize.STRING,
     allowNull: false
   },
+  desc: {
+    type: Sequelize.TEXT,
+  }
 })
 
 module.exports = SearchQuery
