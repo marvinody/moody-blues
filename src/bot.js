@@ -62,7 +62,6 @@ const makeEmbed = (item) => {
 
 const sendWebhook = async ({ webhookURL, item }) => {
   const embed = makeEmbed(item)
-  console.log(`Sending webhook to ${webhookURL} for item.title: "${item.title}"`)
   await discordService.postWebhook({ webhookURL, embed })
 }
 

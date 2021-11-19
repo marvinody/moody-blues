@@ -11,16 +11,17 @@ class DiscordService {
 
   async postWebhook({ webhookURL, embed }) {
     try {
-      const payload = {embeds: [embed], username: "Moody Blues"}
-      console.log(JSON.stringify({payload, webhookURL}))
-      const {data, status} = await this.request.post(webhookURL, payload)
-      console.log({status})
+      const payload = {
+        embeds: [embed],
+        username: "Moody Blues",
+        avatar_url: "https://i.imgur.com/egvX9g2.png",
+      }
+      const { data } = await this.request.post(webhookURL, payload)
       return data;
     } catch (err) {
-      if(err?.response?.data?.retry_after) {
-        console.log(`Sleeping for ${err.response.data.retry_after}ms`);
-        sleep(err.response.data.retry_after);
-        return this.postWebhook({webhookURL, embed})
+      if (err?.response?.data?.retry_after) {
+        await sleep(err.response.data.retry_after);
+        return this.postWebhook({ webhookURL, embed })
       } else {
         throw err;
       }
