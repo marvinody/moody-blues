@@ -1,13 +1,74 @@
 require('dotenv').config()
 const { Schedule, SearchQuery, PostedProduct, Product } = require('./db/models')
 const searchService = require('./services/searchService')
+const discordService = require('./services/discordService')
 
 
-const sendWebhook = (webhook, item) => {
-  console.log(`Sending webhook to ${webhook} for item.title: "${item.title}"`)
+
+const cyrb53 = function (str, seed = 0) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+};
+
+const _makeYAJEmbed = (yajItem) => {
+  const
+    fields = [
+      {
+        name: 'Price:',
+        value: `${yajItem.price}円`,
+        inline: false,
+      },
+    ]
+  if (yajItem.type === 'BUYOUT') {
+    fields.push({
+      name: 'Buy It Now For:',
+      value: `${yajItem.buyoutPrice}円`,
+      inline: false,
+    })
+  }
+  const buyeeLink = yajItem.url.replace("page.auctions.yahoo.co.jp/jp",
+    "buyee.jp/item/yahoo")
+  const description = `${yajItem.title}\n【[YAJ](${yajItem.url})】　【[Buyee](${buyeeLink})】\n`
+
+  return {
+    fields,
+    description,
+  }
+}
+
+const makeEmbed = (item) => {
+
+  return {
+    color: cyrb53(item.siteCode) & 0xffffff,
+    title: `【${item.site}】 - ${item.siteCode}`,
+    description: item.title,
+    url: item.url,
+    image: {
+      url: item.imageURL,
+    },
+    ..._makeYAJEmbed(item),
+    footer: {
+      text: 'Moody Blues'
+    }
+  }
+}
+
+const sendWebhook = async ({ webhookURL, item }) => {
+  const embed = makeEmbed(item)
+  console.log(`Sending webhook to ${webhookURL} for item.title: "${item.title}"`)
+  await discordService.postWebhook({ webhookURL, embed })
 }
 
 async function main() {
+
+  const postsToMake = [];
 
   const queries = await SearchQuery.findAll({
     include: Schedule
@@ -24,7 +85,7 @@ async function main() {
     })
 
     console.log(items[0])
-    items.forEach(async (item) => {
+    await Promise.all(items.map(async (item) => {
       const [product, _] = await Product.findOrCreate({
         where: {
           site: item.site,
@@ -39,8 +100,8 @@ async function main() {
         }
       });
 
-      schedules.forEach(async ({id, webhookURL}) => {
-        const [postedProduct, created] = await PostedProduct.findOrCreate({
+      await Promise.all(schedules.map(async ({ id, webhookURL }) => {
+        const [_postedProduct, created] = await PostedProduct.findOrCreate({
           where: {
             productId: product.id,
             scheduleId: id,
@@ -52,14 +113,20 @@ async function main() {
         });
 
         if (created) {
-          sendWebhook(webhookURL, item)
+          postsToMake.push({ webhookURL, item })
         }
-      })
-    })
+      }))
+    }))
+
+
   }
 
+  console.log(`Making ${postsToMake.length} posts`)
+  for (let idx = 0; idx < postsToMake.length; idx++) {
+    const post = postsToMake[idx];
+    await sendWebhook(post)
 
-
+  }
 }
 
 
