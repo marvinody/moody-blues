@@ -1,5 +1,5 @@
 const axios = require('axios')
-
+const memoize = require("memoizee");
 
 class SearchService {
   constructor() {
@@ -7,16 +7,36 @@ class SearchService {
       baseURL: process.env.SEARCH_API
     })
 
+    this.search = memoize(this.search.bind(this), { promise: true });
+
   }
 
-  async yaj({ page, query }) {
-    const {data } = await this.request.get('/yaj', {
-      params: {
-        page,
-        query,
-      }
-    });
-    return data;
+  async search(service, query) {
+    switch (service) {
+      case 'YAJ':
+        return this.yaj({ query })
+      default:
+        return Promise.reject("No resolver for search");
+    }
+  }
+
+  async yaj({ query }) {
+    let page = 0;
+    let allItems = [];
+    let hasMore = true;
+    while (hasMore) {
+      page += 1;
+      console.log({ page })
+      const { data } = await this.request.get('/yaj', {
+        params: {
+          page,
+          query,
+        }
+      });
+      allItems.push(...data.items)
+      hasMore = data.hasMore
+    }
+    return allItems;
   }
 }
 

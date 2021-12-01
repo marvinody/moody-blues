@@ -6,7 +6,23 @@ const Schedule = db.define('schedule', {
     type: Sequelize.TEXT,
     allowNull: false
   },
+  enabled: {
+    type: Sequelize.BOOLEAN,
+    allowNull: false,
+    defaultValue: true
+  }
 })
+
+Schedule.disableWebhook = function(webhookURL) {
+  return this.update({
+    enabled: false,
+  }, {
+    where: {
+      webhookURL
+    }
+  })
+}
+
 
 module.exports = Schedule
 

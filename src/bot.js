@@ -44,6 +44,14 @@ const _makeYAJEmbed = (yajItem) => {
 }
 
 const makeEmbed = (item) => {
+  let siteEmbed = {};
+  switch (item.site) {
+    case 'YAJ':
+      siteEmbed = _makeYAJEmbed(item);
+      break;
+    default:
+      siteEmbed = {};
+  }
 
   return {
     color: cyrb53(item.siteCode) & 0xffffff,
@@ -53,7 +61,7 @@ const makeEmbed = (item) => {
     image: {
       url: item.imageURL,
     },
-    ..._makeYAJEmbed(item),
+    ...siteEmbed,
     footer: {
       text: 'Moody Blues'
     }
@@ -70,62 +78,76 @@ async function main() {
   const postsToMake = [];
 
   const queries = await SearchQuery.findAll({
-    include: Schedule
+    include: [
+      {
+        model: Schedule,
+        where: {
+          enabled: true
+        }
+      }
+    ]
   })
 
-  for (let idx = 0; idx < queries.length; idx++) {
-    const { site, query, schedules } = queries[idx];
 
-    // make site dynamic and fetch all results instead of paging through
-    // probably abstract to the service to let it do that
-    const { hasMore, items } = await searchService.yaj({
-      query,
-      page: 1,
-    })
+  try {
 
-    console.log(items[0])
-    await Promise.all(items.map(async (item) => {
-      const [product, _] = await Product.findOrCreate({
-        where: {
-          site: item.site,
-          siteProductId: item.siteCode,
-          price: item.price,
-        },
-        defaults: {
-          site: item.site,
-          siteProductId: item.siteCode,
-          price: item.price,
-          title: item.title,
-        }
-      });
+    for (let idx = 0; idx < queries.length; idx++) {
+      const { site, query, schedules } = queries[idx];
 
-      await Promise.all(schedules.map(async ({ id, webhookURL }) => {
-        const [_postedProduct, created] = await PostedProduct.findOrCreate({
+      // make site dynamic and fetch all results instead of paging through
+      // probably abstract to the service to let it do that
+      const items = await searchService.search(site, query)
+
+      await Promise.all(items.map(async (item) => {
+        const [product, _] = await Product.findOrCreate({
           where: {
-            productId: product.id,
-            scheduleId: id,
+            site: item.site,
+            siteProductId: item.siteCode,
+            price: item.price,
           },
           defaults: {
-            productId: product.id,
-            scheduleId: id,
+            site: item.site,
+            siteProductId: item.siteCode,
+            price: item.price,
+            title: item.title,
           }
         });
 
-        if (created) {
-          postsToMake.push({ webhookURL, item })
-        }
+        await Promise.all(schedules.map(async ({ id, webhookURL }) => {
+          const [_postedProduct, created] = await PostedProduct.findOrCreate({
+            where: {
+              productId: product.id,
+              scheduleId: id,
+            },
+            defaults: {
+              productId: product.id,
+              scheduleId: id,
+            }
+          });
+
+          if (created) {
+            postsToMake.push({ webhookURL, item })
+          }
+        }))
       }))
-    }))
 
 
+    }
+
+  } catch (err) {
+    console.error(err);
+  } finally {
+    console.log(`Making ${postsToMake.length} posts`)
+    for (let idx = 0; idx < postsToMake.length; idx++) {
+      const post = postsToMake[idx];
+      try {
+        await sendWebhook(post)
+      } catch (err) {
+        console.error(`Uncaught error in webhook: ${err.message}`)
+      }
+    }
   }
 
-  console.log(`Making ${postsToMake.length} posts`)
-  for (let idx = 0; idx < postsToMake.length; idx++) {
-    const post = postsToMake[idx];
-    await sendWebhook(post)
-
-  }
 }
 
 
