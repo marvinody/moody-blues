@@ -25,14 +25,14 @@ class DiscordService {
     await this.request.post(process.env.ERROR_WEBHOOK, {
       username: "Moody Blues",
       avatar_url: "https://i.imgur.com/egvX9g2.png",
-      content: `Error for webhook: ${id}\n${err.message}`
+      content: `Error for webhook: ${id}\n${err.toString()}`
     })
   }
 
-  async postWebhook({ webhookURL, embed }) {
+  async postWebhook({ webhookURL, embeds }) {
     try {
       const payload = {
-        embeds: [embed],
+        embeds,
         username: "Moody Blues",
         avatar_url: "https://i.imgur.com/egvX9g2.png",
       }

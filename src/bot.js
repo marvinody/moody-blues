@@ -1,8 +1,29 @@
 require('dotenv').config()
 const { Schedule, SearchQuery, PostedProduct, Product } = require('./db/models')
+const _ = require('lodash')
 const searchService = require('./services/searchService')
 const discordService = require('./services/discordService')
 
+const groupPosts = (posts) => {
+  const postsWithIdx = posts.map((p, idx) => ({ ...p, idx }));
+
+  const groupedByWebhook = _.groupBy(postsWithIdx, 'webhookURL');
+
+  const chunkedByWebhook = _.mapValues(groupedByWebhook, x => _.chunk(x, 10))
+
+  const flattened = _.flatMap(chunkedByWebhook)
+
+  // use lowest idx in each chunk to determine sorting
+  const sortedByPrio = _.sortBy(flattened, [l => Math.min(..._.map(l, 'idx'))])
+
+  const remappedPosts = _.map(sortedByPrio, chunk => ({
+    webhookURL: chunk[0].webhookURL,
+    items: _.map(chunk, 'item'),
+  }))
+
+  return remappedPosts
+
+}
 
 
 const cyrb53 = function (str, seed = 0) {
@@ -68,9 +89,9 @@ const makeEmbed = (item) => {
   }
 }
 
-const sendWebhook = async ({ webhookURL, item }) => {
-  const embed = makeEmbed(item)
-  await discordService.postWebhook({ webhookURL, embed })
+const sendWebhook = async ({ webhookURL, items }) => {
+  const embeds = items.map(makeEmbed)
+  await discordService.postWebhook({ webhookURL, embeds })
 }
 
 async function main() {
@@ -138,8 +159,10 @@ async function main() {
     console.error(err);
   } finally {
     console.log(`Making ${postsToMake.length} posts`)
-    for (let idx = 0; idx < postsToMake.length; idx++) {
-      const post = postsToMake[idx];
+
+    const groupedPosts = groupPosts(postsToMake)
+    for (let idx = 0; idx < groupedPosts.length; idx++) {
+      const post = groupedPosts[idx];
       try {
         await sendWebhook(post)
       } catch (err) {
