@@ -1,1 +1,1 @@
-procile: npm run bot
+worker: npm run bot
