@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node src/util/seed",
-    "add:schedule": "node src/util/addSchedule"
+    "add:schedule": "node src/util/addSchedule",
+    "add:query": "node src/util/addQuery"
   },
   "keywords": [],
   "author": "",
