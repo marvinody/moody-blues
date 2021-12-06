@@ -1,0 +1,1 @@
+cron: npm run bot
