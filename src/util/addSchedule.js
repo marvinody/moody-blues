@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 const db = require('../db')
 const { Schedule } = require('../db/models')
 
