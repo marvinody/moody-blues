@@ -1,1 +1,1 @@
-cron: npm run bot
+procile: npm run bot
