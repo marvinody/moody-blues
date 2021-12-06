@@ -3,7 +3,7 @@
     "web": {
       "quantity": 0
     },
-    "cron": {
+    "worker": {
       "quantity": 1
     }
   },
