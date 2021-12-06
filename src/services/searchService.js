@@ -4,7 +4,10 @@ const memoize = require("memoizee");
 class SearchService {
   constructor() {
     this.request = axios.create({
-      baseURL: process.env.SEARCH_API
+      baseURL: process.env.SEARCH_API,
+      headers: {
+        'api-key': process.env.API_KEY
+      }
     })
 
     this.search = memoize(this.search.bind(this), { promise: true });
