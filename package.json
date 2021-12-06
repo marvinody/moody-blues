@@ -10,6 +10,10 @@
     "add:schedule": "node src/util/addSchedule",
     "add:query": "node src/util/addQuery"
   },
+  "engines": {
+    "node": "17.x",
+    "npm": "8.x"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
