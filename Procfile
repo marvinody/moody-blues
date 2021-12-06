@@ -1,2 +1,2 @@
-worker: npm run bot
-cron: npm run bot
+worker: npm run dumb
+cron: npm run dumb

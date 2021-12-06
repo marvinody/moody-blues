@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dumb": "echo 'dumb shit'",
     "bot": "node src/bot",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node src/util/seed",
