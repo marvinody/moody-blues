@@ -167,6 +167,7 @@ async function main() {
         await sendWebhook(post)
       } catch (err) {
         console.error(`Uncaught error in webhook: ${err.message}`)
+        console.error(err.stack)
       }
     }
   }

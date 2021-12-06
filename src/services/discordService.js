@@ -42,7 +42,7 @@ class DiscordService {
       if (err?.response?.data?.retry_after) {
 
         await sleep(err.response.data.retry_after);
-        return this.postWebhook({ webhookURL, embed })
+        return this.postWebhook({ webhookURL, embeds })
 
       } else if (err?.response?.status === 404) {
 
