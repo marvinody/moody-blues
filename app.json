@@ -1,0 +1,16 @@
+{
+  "formation": {
+    "web": {
+      "quantity": 0
+    },
+    "cron": {
+      "quantity": 1
+    }
+  },
+  "cron": [
+    {
+      "command": "npm run send-email",
+      "schedule": "@hourly"
+    }
+  ]
+}
