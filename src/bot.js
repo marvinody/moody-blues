@@ -124,7 +124,6 @@ async function main() {
           where: {
             site: item.site,
             siteProductId: item.siteCode,
-            price: item.price,
           },
           defaults: {
             site: item.site,
@@ -133,6 +132,12 @@ async function main() {
             title: item.title,
           }
         });
+
+        if(product.price !== item.price) {
+          await product.update({
+            price: item.price
+          })
+        }
 
         await Promise.all(schedules.map(async ({ id, webhookURL }) => {
           const [_postedProduct, created] = await PostedProduct.findOrCreate({
@@ -157,6 +162,8 @@ async function main() {
 
   } catch (err) {
     console.error(err);
+    await discordService.postError(err)
+
   } finally {
     console.log(`Making ${postsToMake.length} posts`)
 

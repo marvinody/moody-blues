@@ -11,6 +11,14 @@ class DiscordService {
 
   }
 
+  async postError(err) {
+    await this.request.post(process.env.ERROR_WEBHOOK, {
+      username: "Moody Blues",
+      avatar_url: "https://i.imgur.com/egvX9g2.png",
+      content: `Error: ${err.message}, \`\`\` ${err.stack} \`\`\``
+    })
+  }
+
   async postDisablingWebhook(err, webhookToDisable) {
     const id = getId(webhookToDisable)
     await this.request.post(process.env.ERROR_WEBHOOK, {
