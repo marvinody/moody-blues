@@ -38,19 +38,25 @@ const cyrb53 = function (str, seed = 0) {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 };
 
+const formatToYen = (() => {
+  const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'JPY' })
+
+  return (n) => formatter.format(n)
+})();
+
 const _makeYAJEmbed = (yajItem) => {
   const
     fields = [
       {
         name: 'Price:',
-        value: `${yajItem.price}円`,
+        value: formatToYen(yajItem.price),
         inline: false,
       },
     ]
-  if (yajItem.type === 'BUYOUT') {
-    fields.push({
-      name: 'Buy It Now For:',
-      value: `${yajItem.buyoutPrice}円`,
+    if (yajItem.type === 'BUYOUT') {
+      fields.push({
+        name: 'Buy It Now For:',
+        value: formatToYen(yajItem.buyoutPrice),
       inline: false,
     })
   }
@@ -64,11 +70,32 @@ const _makeYAJEmbed = (yajItem) => {
   }
 }
 
+const _makeLashinBangEmbed = (lashinItem) => {
+  const
+    fields = [
+      {
+        name: 'Price:',
+        value: formatToYen(lashinItem.price),
+        inline: false,
+      },
+    ]
+
+  const description = `${lashinItem.title}\n【[Product Page](${lashinItem.url})】\n`
+
+  return {
+    fields,
+    description,
+  }
+}
+
 const makeEmbed = (item) => {
   let siteEmbed = {};
   switch (item.site) {
     case 'YAJ':
       siteEmbed = _makeYAJEmbed(item);
+      break;
+    case 'LASHINBANG':
+      siteEmbed = _makeLashinBangEmbed(item);
       break;
     default:
       siteEmbed = {};

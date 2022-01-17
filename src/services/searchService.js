@@ -18,9 +18,32 @@ class SearchService {
     switch (service) {
       case 'YAJ':
         return this.yaj({ query })
+      case 'LASHINBANG':
+        return this.lashinbang({ query })
       default:
-        return Promise.reject("No resolver for search");
+        return Promise.reject(new Error(`No resolver for search: "${service}"`));
     }
+  }
+
+  async lashinbang({ query }) {
+    let page = 0;
+    let allItems = [];
+    let hasMore = true;
+    while (hasMore) {
+      page += 1;
+      console.log({ lashin:page })
+      const { data } = await this.request.get('/lashinbang', {
+        params: {
+          page,
+          query,
+        }
+      });
+
+      // only push the sfw stuff
+      allItems.push(...data.items.filter(item => !item.nsfw))
+      hasMore = data.hasMore
+    }
+    return allItems;
   }
 
   async yaj({ query }) {
@@ -29,7 +52,7 @@ class SearchService {
     let hasMore = true;
     while (hasMore) {
       page += 1;
-      console.log({ page })
+      console.log({ yaj: page })
       const { data } = await this.request.get('/yaj', {
         params: {
           page,
