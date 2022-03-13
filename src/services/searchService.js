@@ -20,6 +20,10 @@ class SearchService {
         return this.yaj({ query })
       case 'LASHINBANG':
         return this.lashinbang({ query })
+      case 'MANDARAKE':
+        return this.mandarake({ query })
+      case 'RAKUTEN':
+        return this.rakuten({ query })
       default:
         return Promise.reject(new Error(`No resolver for search: "${service}"`));
     }
@@ -54,6 +58,42 @@ class SearchService {
       page += 1;
       console.log({ yaj: page })
       const { data } = await this.request.get('/yaj', {
+        params: {
+          page,
+          query,
+        }
+      });
+      allItems.push(...data.items)
+      hasMore = data.hasMore
+    }
+    return allItems;
+  }
+
+  async rakuten({ query }) {
+    let page = 0;
+    let allItems = [];
+    let hasMore = true;
+    while (hasMore) {
+      page += 1;
+      const { data } = await this.request.get('/rakuten', {
+        params: {
+          page,
+          query,
+        }
+      });
+      allItems.push(...data.items)
+      hasMore = data.hasMore
+    }
+    return allItems;
+  }
+ 
+  async mandarake({ query }) {
+    let page = 0;
+    let allItems = [];
+    let hasMore = true;
+    while (hasMore) {
+      page += 1;
+      const { data } = await this.request.get('/mandarake', {
         params: {
           page,
           query,

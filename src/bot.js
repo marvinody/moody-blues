@@ -98,7 +98,15 @@ const makeEmbed = (item) => {
       siteEmbed = _makeLashinBangEmbed(item);
       break;
     default:
-      siteEmbed = {};
+      siteEmbed = {
+        fields: [
+          {
+            name: 'Price:',
+            value: formatToYen(item.price),
+            inline: false,
+          },
+        ]
+      };
   }
 
   return {
