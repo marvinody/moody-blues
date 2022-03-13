@@ -9,7 +9,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node src/util/seed",
     "add:schedule": "node src/util/addSchedule",
-    "add:query": "node src/util/addQuery"
+    "add:query": "node src/util/addQuery",
+    "show:query": "node src/util/showQueries",
+    "show:schedule": "node src/util/showSchedules"
   },
   "engines": {
     "node": "17.x",
