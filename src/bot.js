@@ -53,10 +53,10 @@ const _makeYAJEmbed = (yajItem) => {
         inline: false,
       },
     ]
-    if (yajItem.type === 'BUYOUT') {
-      fields.push({
-        name: 'Buy It Now For:',
-        value: formatToYen(yajItem.buyoutPrice),
+  if (yajItem.type === 'BUYOUT') {
+    fields.push({
+      name: 'Buy It Now For:',
+      value: formatToYen(yajItem.buyoutPrice),
       inline: false,
     })
   }
@@ -88,7 +88,7 @@ const _makeLashinBangEmbed = (lashinItem) => {
   }
 }
 
-const makeEmbed = (item) => {
+const makeEmbed = ({ item, priceChanged, oldPrice, }) => {
   let siteEmbed = {};
   switch (item.site) {
     case 'YAJ':
@@ -107,6 +107,14 @@ const makeEmbed = (item) => {
           },
         ]
       };
+  }
+
+  if(priceChanged && siteEmbed.fields) {
+    siteEmbed.fields.push({
+      name: 'Old Price:',
+      value: formatToYen(oldPrice),
+      inline: false,
+    })
   }
 
   return {
@@ -168,7 +176,10 @@ async function main() {
           }
         });
 
-        if(product.price !== item.price) {
+        const priceChanged = product.price !== item.price
+        const oldPrice = product.price
+
+        if (priceChanged) {
           await product.update({
             price: item.price
           })
@@ -186,8 +197,14 @@ async function main() {
             }
           });
 
-          if (created) {
-            postsToMake.push({ webhookURL, item })
+          if (created || priceChanged) {
+            postsToMake.push({
+              webhookURL, item: {
+                item,
+                priceChanged,
+                oldPrice,
+              }
+            })
           }
         }))
       }))
