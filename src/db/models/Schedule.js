@@ -10,6 +10,10 @@ const Schedule = db.define('schedule', {
     type: Sequelize.BOOLEAN,
     allowNull: false,
     defaultValue: true
+  },
+  channelDesc: {
+    type: Sequelize.TEXT,
+    allowNull: true,
   }
 })
 
