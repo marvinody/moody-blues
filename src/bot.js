@@ -3,6 +3,7 @@ const { Schedule, SearchQuery, PostedProduct, Product } = require('./db/models')
 const _ = require('lodash')
 const searchService = require('./services/searchService')
 const discordService = require('./services/discordService')
+const asyncPool = require('tiny-async-pool')
 
 const groupPosts = (posts) => {
   const postsWithIdx = posts.map((p, idx) => ({ ...p, idx }));
@@ -162,7 +163,7 @@ async function main() {
       // probably abstract to the service to let it do that
       const items = await searchService.search(site, query)
 
-      await Promise.all(items.map(async (item) => {
+      const handleItem = async (item) => {
         const [product, _] = await Product.findOrCreate({
           where: {
             site: item.site,
@@ -207,8 +208,11 @@ async function main() {
             })
           }
         }))
-      }))
+      }
 
+      for await (const item of asyncPool(30, items, handleItem)) {
+        console.log(`${item.site} - ${item.siteCode} - ${item.title}`);
+      }
 
     }
 
