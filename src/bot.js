@@ -208,6 +208,8 @@ async function main() {
             })
           }
         }))
+
+        return item;
       }
 
       for await (const item of asyncPool(30, items, handleItem)) {
