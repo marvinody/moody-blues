@@ -35,7 +35,6 @@ class SearchService {
     let hasMore = true;
     while (hasMore) {
       page += 1;
-      console.log({ lashin:page })
       const { data } = await this.request.get('/lashinbang', {
         params: {
           page,
@@ -56,7 +55,6 @@ class SearchService {
     let hasMore = true;
     while (hasMore) {
       page += 1;
-      console.log({ yaj: page })
       const { data } = await this.request.get('/yaj', {
         params: {
           page,

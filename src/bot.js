@@ -157,12 +157,13 @@ async function main() {
   try {
 
     for (let idx = 0; idx < queries.length; idx++) {
-      const { site, query, schedules } = queries[idx];
+      const { site, query, schedules, desc } = queries[idx];
 
       // make site dynamic and fetch all results instead of paging through
       // probably abstract to the service to let it do that
+      console.log(`${site} - ${desc} - "${query}"`)
       const items = await searchService.search(site, query)
-
+      
       const handleItem = async (item) => {
         const [product, _] = await Product.findOrCreate({
           where: {
@@ -212,8 +213,9 @@ async function main() {
         return item;
       }
 
-      for await (const item of asyncPool(30, items, handleItem)) {
-        console.log(`${item.site} - ${item.siteCode} - ${item.title}`);
+      console.log(`\thandling ${items.length} item(s)`)
+      for await (const item of asyncPool(10, items, handleItem)) {
+        
       }
 
     }
