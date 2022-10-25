@@ -47,14 +47,16 @@ const formatToYen = (() => {
 
 const _makeYAJEmbed = (yajItem) => {
   const
-    fields = [
-      {
-        name: 'Price:',
-        value: formatToYen(yajItem.price),
-        inline: false,
-      },
-    ]
-  if (yajItem.type === 'BUYOUT') {
+    fields = [];
+  if (yajItem.type === 'AUCTION' || yajItem.type === 'AUCTION_WITH_BUYOUT') {
+    fields.push({
+      name: 'Current Price:',
+      value: formatToYen(yajItem.price),
+      inline: false,
+    })
+  }
+  
+  if (yajItem.type === 'BUYOUT' || yajItem.type === 'AUCTION_WITH_BUYOUT') {
     fields.push({
       name: 'Buy It Now For:',
       value: formatToYen(yajItem.buyoutPrice),
@@ -110,7 +112,7 @@ const makeEmbed = ({ item, priceChanged, oldPrice, }) => {
       };
   }
 
-  if(priceChanged && siteEmbed.fields) {
+  if (priceChanged && siteEmbed.fields) {
     siteEmbed.fields.push({
       name: 'Old Price:',
       value: formatToYen(oldPrice),
@@ -163,7 +165,7 @@ async function main() {
       // probably abstract to the service to let it do that
       console.log(`${site} - ${desc} - "${query}"`)
       const items = await searchService.search(site, query)
-      
+
       const handleItem = async (item) => {
         const [product, _] = await Product.findOrCreate({
           where: {
@@ -215,7 +217,7 @@ async function main() {
 
       console.log(`\thandling ${items.length} item(s)`)
       for await (const item of asyncPool(10, items, handleItem)) {
-        
+
       }
 
     }
