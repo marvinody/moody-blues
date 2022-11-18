@@ -157,69 +157,8 @@ async function main() {
 
 
   try {
-
-    for (let idx = 0; idx < queries.length; idx++) {
-      const { site, query, schedules, desc } = queries[idx];
-
-      // make site dynamic and fetch all results instead of paging through
-      // probably abstract to the service to let it do that
-      console.log(`${site} - ${desc} - "${query}"`)
-      const items = await searchService.search(site, query)
-
-      const handleItem = async (item) => {
-        const [product, _] = await Product.findOrCreate({
-          where: {
-            site: item.site,
-            siteProductId: item.siteCode,
-          },
-          defaults: {
-            site: item.site,
-            siteProductId: item.siteCode,
-            price: item.price,
-            title: item.title,
-          }
-        });
-
-        const priceChanged = product.price !== item.price
-        const oldPrice = product.price
-
-        if (priceChanged) {
-          await product.update({
-            price: item.price
-          })
-        }
-
-        await Promise.all(schedules.map(async ({ id, webhookURL }) => {
-          const [_postedProduct, created] = await PostedProduct.findOrCreate({
-            where: {
-              productId: product.id,
-              scheduleId: id,
-            },
-            defaults: {
-              productId: product.id,
-              scheduleId: id,
-            }
-          });
-
-          if (created || priceChanged) {
-            postsToMake.push({
-              webhookURL, item: {
-                item,
-                priceChanged,
-                oldPrice,
-              }
-            })
-          }
-        }))
-
-        return item;
-      }
-
-      console.log(`\thandling ${items.length} item(s)`)
-      for await (const item of asyncPool(10, items, handleItem)) {
-
-      }
-
+    for await (const _ of asyncPool(10, queries, handleQuery(postsToMake))) {
+      // no op, don't need return
     }
 
   } catch (err) {
@@ -241,6 +180,70 @@ async function main() {
     }
   }
 
+}
+
+
+
+const handleQuery = (postsToMake) => async (queryEntry) => {
+  const { site, query, schedules, desc } = queryEntry
+
+  // make site dynamic and fetch all results instead of paging through
+  // probably abstract to the service to let it do that
+  console.log(`${site} - ${desc} - "${query}"`)
+  const items = await searchService.search(site, query)
+
+  const handleItem = async (item) => {
+    const [product, _] = await Product.findOrCreate({
+      where: {
+        site: item.site,
+        siteProductId: item.siteCode,
+      },
+      defaults: {
+        site: item.site,
+        siteProductId: item.siteCode,
+        price: item.price,
+        title: item.title,
+      }
+    })
+
+    const priceChanged = product.price !== item.price
+    const oldPrice = product.price
+
+    if (priceChanged) {
+      await product.update({
+        price: item.price
+      })
+    }
+
+    await Promise.all(schedules.map(async ({ id, webhookURL }) => {
+      const [_postedProduct, created] = await PostedProduct.findOrCreate({
+        where: {
+          productId: product.id,
+          scheduleId: id,
+        },
+        defaults: {
+          productId: product.id,
+          scheduleId: id,
+        }
+      })
+
+      if (created || priceChanged) {
+        postsToMake.push({
+          webhookURL, item: {
+            item,
+            priceChanged,
+            oldPrice,
+          }
+        })
+      }
+    }))
+
+    return item
+  }
+
+  console.log(`\thandling ${items.length} item(s)`)
+  for await (const item of asyncPool(10, items, handleItem)) {
+  }
 }
 
 
