@@ -193,6 +193,11 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
   const items = await searchService.search(site, query)
 
   const handleItem = async (item) => {
+    // anything bigger crashes the bot because DB doesn't like and I'm not fixing because it's dumb...
+    if(item.price > 2**31) {
+      return
+    }
+    
     const [product, _] = await Product.findOrCreate({
       where: {
         site: item.site,
