@@ -6,6 +6,7 @@
   "scripts": {
     "dumb": "echo 'dumb shit'",
     "bot": "node src/bot",
+    "discord-bot": "node src/discord-bot",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node src/util/seed",
     "add:schedule": "node src/util/addSchedule",
@@ -21,6 +22,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@sentry/node": "^7.23.0",
+    "@sentry/tracing": "^7.23.0",
     "axios": "^0.24.0",
     "dotenv": "^10.0.0",
     "eris": "github:abalabahaha/eris#dev",

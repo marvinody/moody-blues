@@ -17,7 +17,8 @@ const command = {
     },
    
   ],
-  type: Constants.ApplicationCommandTypes.CHAT_INPUT //Not required for Chat input type, but recommended
+  type: Constants.ApplicationCommandTypes.CHAT_INPUT, //Not required for Chat input type, but recommended
+  default_member_permissions: Constants.Permissions.manageWebhooks,
 }
 
 
@@ -25,15 +26,11 @@ const command = {
 /**
  * @param {Eris.Client} bot
  * @param {Eris.AutocompleteInteraction} interaction
- * @returns {number}
  */
 const autocomplete = async (bot, interaction) => {
 
-  
   const guildId = interaction.guildID;
   const channelId = interaction.channel.id;
-
-  console.log({guildId, channelId})
 
   const queries = await SearchQuery.findAll({
     include: [
@@ -60,7 +57,6 @@ const autocomplete = async (bot, interaction) => {
 /**
  * @param {Eris.Client} bot
  * @param {Eris.CommandInteraction} interaction
- * @returns {number}
  */
 const action = async (bot, interaction) => {
 
@@ -79,7 +75,7 @@ const action = async (bot, interaction) => {
     },
   })
 
-  return interaction.createMessage("Query Deleted!");
+  return interaction.createMessage("Query Deleted! Make sure you delete any leftover webhooks in Channel Settings -> Integrations -> Webhooks if you're wiping this channel completely");
 
 }
 

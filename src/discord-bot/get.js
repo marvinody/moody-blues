@@ -13,7 +13,6 @@ const command = {
 /**
  * @param {Eris.Client} bot
  * @param {Eris.CommandInteraction} interaction
- * @returns {number}
  */
 const action = async (bot, interaction) => {
 
