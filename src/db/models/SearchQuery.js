@@ -13,7 +13,29 @@ const SearchQuery = db.define('searchQuery', {
   desc: {
     type: Sequelize.TEXT,
   }
-})
+}, {
+  indexes: [
+    {
+      unique: true,
+      fields: ['site', 'query']
+    },
+  ]
+});
+
+SearchQuery.addQueriesToAllSites = function ({
+  sites,
+  query,
+  desc,
+}) {
+  return this.bulkCreate(sites.map(site => ({
+    site,
+    query,
+    desc,
+  })), {
+    updateOnDuplicate: ['desc']
+  })
+};
+
 
 module.exports = SearchQuery
 

@@ -14,7 +14,15 @@ const Schedule = db.define('schedule', {
   channelDesc: {
     type: Sequelize.TEXT,
     allowNull: true,
-  }
+  },
+  channelId: {
+    type: Sequelize.TEXT,
+    allowNull: false,
+  },
+  guildId: {
+    type: Sequelize.TEXT,
+    allowNull: false,
+  },
 })
 
 Schedule.disableWebhook = function(webhookURL) {
