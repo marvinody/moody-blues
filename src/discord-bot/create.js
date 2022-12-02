@@ -70,8 +70,6 @@ const action = async (bot, interaction) => {
     return interaction.createMessage("Max queries created, please delete existing ones");
   }
 
-  console.log(JSON.stringify(interaction.data, null, 2));
-
   const [queryEntry, _created] = await SearchQuery.findOrCreate({
     where: {
       query,
