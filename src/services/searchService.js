@@ -1,6 +1,8 @@
 const axios = require('axios')
 const memoize = require("memoizee");
 
+const MAX_LENGTH = 1500
+
 class SearchService {
   constructor() {
     this.request = axios.create({
@@ -44,7 +46,7 @@ class SearchService {
 
       // only push the sfw stuff
       allItems.push(...data.items.filter(item => !item.nsfw))
-      hasMore = data.hasMore
+      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
     }
     return allItems;
   }
@@ -62,7 +64,7 @@ class SearchService {
         }
       });
       allItems.push(...data.items)
-      hasMore = data.hasMore
+      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
     }
     return allItems;
   }
@@ -80,7 +82,7 @@ class SearchService {
         }
       });
       allItems.push(...data.items)
-      hasMore = data.hasMore
+      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
     }
     return allItems;
   }
@@ -98,7 +100,7 @@ class SearchService {
         }
       });
       allItems.push(...data.items)
-      hasMore = data.hasMore
+      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
     }
     return allItems;
   }
