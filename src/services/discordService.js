@@ -62,7 +62,7 @@ class DiscordService {
 
       } else {
         if (process.env.ERROR_WEBHOOK) {
-          return this.postGenericErrorWebhook(err, webhook);
+          return this.postGenericErrorWebhook(err, webhookURL);
         } else {
           console.error(err)
         }
