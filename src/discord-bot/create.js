@@ -37,9 +37,9 @@ const command = {
     },
     {
       name: "desc",
-      description: "Description for the query (generally in English) [optional]",
+      description: "Description for the query (generally in English)",
       type: Constants.ApplicationCommandOptionTypes.STRING,
-      required: false,
+      required: true,
     },
   ],
   type: Constants.ApplicationCommandTypes.CHAT_INPUT, //Not required for Chat input type, but recommended
