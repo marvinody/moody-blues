@@ -6,6 +6,7 @@ const { Schedule, SearchQuery } = require('../db/models');
 const name = "get";
 const command = {
   name,
+  dm_permission: false,
   description: "Get all queries running in this channel",
   type: Constants.ApplicationCommandTypes.CHAT_INPUT //Not required for Chat input type, but recommended
 }

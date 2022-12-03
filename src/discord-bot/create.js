@@ -42,6 +42,7 @@ const command = {
       required: true,
     },
   ],
+  dm_permission: false,
   type: Constants.ApplicationCommandTypes.CHAT_INPUT, //Not required for Chat input type, but recommended
   default_member_permissions: Constants.Permissions.manageWebhooks,
 }
@@ -54,6 +55,8 @@ const action = async (bot, interaction) => {
 
   const guildId = interaction.guildID;
   const channelId = interaction.channel.id;
+
+  const channel = bot.getChannel(channelId);
 
   const query = interaction.data.options.find(opt => opt.name === 'query').value.trim();
   const site = interaction.data.options.find(opt => opt.name === 'site').value;
@@ -111,7 +114,14 @@ const action = async (bot, interaction) => {
     guildId,
   })
 
-  return interaction.createMessage("Query Created! Please wait up to an hour to see results!");
+  const messages = [
+    "Query Created! Please wait up to an hour to see results!"
+  ];
+
+  if(!channel.nsfw) {
+    messages.push("Sometimes NSFW results get mixed in, depending on the site. Consider enabling Age Restricted mode on this channel");
+  }
+  return interaction.createMessage(messages.join('\n'));
 
 }
 

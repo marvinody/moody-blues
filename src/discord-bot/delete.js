@@ -15,8 +15,8 @@ const command = {
       required: true,
       autocomplete: true,
     },
-   
   ],
+  dm_permission: false,
   type: Constants.ApplicationCommandTypes.CHAT_INPUT, //Not required for Chat input type, but recommended
   default_member_permissions: Constants.Permissions.manageWebhooks,
 }

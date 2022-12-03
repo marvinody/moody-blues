@@ -37,20 +37,23 @@ const GUILD_ID = process.env.DEV_GUILD_ID;
 
 // Replace TOKEN with your bot account's token
 const bot = new Eris(process.env.BOT_TOKEN, {
-  intents: [] //No intents are needed for interactions, but you still need to specify either an empty array or 0
+  intents: [
+    "guilds"
+  ] 
 });
 
 bot.on("ready", async () => { // When the bot is ready
   console.log("Loading!");
 
   console.log(`${commands.length} commands detected`)
-
+  
+  const commandsPayload = commands.map(c => c.command);
   if (process.env.NODE_ENV === 'prod') {
     console.log('Loading Global Commands')
-    await bot.bulkEditCommands(commands.map(c => c.command))
+    await bot.bulkEditCommands(commandsPayload)
   } else {
     console.log('Loading Guild Commands')
-    await bot.bulkEditGuildCommands(GUILD_ID, commands.map(c => c.command))
+    await bot.bulkEditGuildCommands(GUILD_ID, commandsPayload)
   }
 
   console.log("Ready!");
