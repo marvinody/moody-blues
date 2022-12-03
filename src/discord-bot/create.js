@@ -58,6 +58,14 @@ const action = async (bot, interaction) => {
 
   const channel = bot.getChannel(channelId);
 
+
+  const canManageWebhooks = interaction.appPermissions.has('manageWebhooks');
+
+  if(!canManageWebhooks) {
+    return interaction.createMessage("It seems like I don't have permissions to manage webhooks. Check if I have that, and then try running it again.")
+  }
+
+
   const query = interaction.data.options.find(opt => opt.name === 'query').value.trim();
   const site = interaction.data.options.find(opt => opt.name === 'site').value;
   const desc = interaction.data.options.find(opt => opt.name === 'desc').value.trim();
