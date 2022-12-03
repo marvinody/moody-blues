@@ -157,7 +157,7 @@ async function main() {
 
 
   try {
-    for await (const _ of asyncPool(10, queries, handleQuery(postsToMake))) {
+    for await (const _ of asyncPool(4, queries, handleQuery(postsToMake))) {
       // no op, don't need return
     }
 
@@ -247,7 +247,7 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
   }
 
   console.log(`\thandling ${items.length} item(s)`)
-  for await (const item of asyncPool(10, items, handleItem)) {
+  for await (const item of asyncPool(4, items, handleItem)) {
   }
 }
 
