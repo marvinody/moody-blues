@@ -74,7 +74,6 @@ const action = async (bot, interaction) => {
     where: {
       query,
       site,
-      desc,
     },
     defaults: {
       query,
