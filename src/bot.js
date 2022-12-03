@@ -55,7 +55,7 @@ const _makeYAJEmbed = (yajItem) => {
       inline: false,
     })
   }
-  
+
   if (yajItem.type === 'BUYOUT' || yajItem.type === 'AUCTION_WITH_BUYOUT') {
     fields.push({
       name: 'Buy It Now For:',
@@ -194,10 +194,10 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
 
   const handleItem = async (item) => {
     // anything bigger crashes the bot because DB doesn't like and I'm not fixing because it's dumb...
-    if(item.price > 2**31) {
+    if (item.price > 2 ** 31) {
       return
     }
-    
+
     const [product, _] = await Product.findOrCreate({
       where: {
         site: item.site,
@@ -213,6 +213,10 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
 
     const priceChanged = product.price !== item.price
     const oldPrice = product.price
+
+    if (item.price > 900000) {
+      return;
+    }
 
     if (priceChanged) {
       await product.update({
