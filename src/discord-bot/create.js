@@ -16,6 +16,7 @@ const command = {
       name: "query",
       description: "Query to search for (generally in Japanese)",
       type: Constants.ApplicationCommandOptionTypes.STRING,
+      min_length: 3,
       required: true,
     },
     {
