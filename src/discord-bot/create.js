@@ -30,10 +30,25 @@ const command = {
           value: "YAJ",
         },
         {
+          name: "Mercari JP",
+          value: "MERCARI",
+        },
+        {
           name: "LashingBang",
           value: "LASHINBANG",
-
-        }
+        },
+        {
+          name: "Rakuten",
+          value: "RAKUTEN",
+        },
+        {
+          name: "Mandarake",
+          value: "MANDARAKE",
+        },
+        {
+          name: "Suruga-ya JP",
+          value: "SURUGAYA",
+        },
       ]
     },
     {
