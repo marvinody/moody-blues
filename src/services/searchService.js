@@ -19,25 +19,29 @@ class SearchService {
   async search(service, query) {
     switch (service) {
       case 'YAJ':
-        return this.yaj({ query })
+        return this._searchHelper({ query, site: 'yaj' })
+      case 'MERCARI':
+        return this._searchHelper({ query, site: 'mercari' })
       case 'LASHINBANG':
-        return this.lashinbang({ query })
+        return this._searchHelper({ query, site: 'lashinbang' })
+        case 'RAKUTEN':
+          return this._searchHelper({ query, site: 'rakuten' })
       case 'MANDARAKE':
-        return this.mandarake({ query })
-      case 'RAKUTEN':
-        return this.rakuten({ query })
+        return this._searchHelper({ query, site: 'mandarake' })
+      case 'SURUGAYA':
+        return this._searchHelper({ query, site: 'surugaya' })
       default:
         return Promise.reject(new Error(`No resolver for search: "${service}"`));
     }
   }
 
-  async lashinbang({ query }) {
+  async _searchHelper({query, site}) {
     let page = 0;
     let allItems = [];
     let hasMore = true;
     while (hasMore) {
       page += 1;
-      const { data } = await this.request.get('/lashinbang', {
+      const { data } = await this.request.get(`/${site}`, {
         params: {
           page,
           query,
@@ -51,59 +55,6 @@ class SearchService {
     return allItems;
   }
 
-  async yaj({ query }) {
-    let page = 0;
-    let allItems = [];
-    let hasMore = true;
-    while (hasMore) {
-      page += 1;
-      const { data } = await this.request.get('/yaj', {
-        params: {
-          page,
-          query,
-        }
-      });
-      allItems.push(...data.items)
-      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
-    }
-    return allItems;
-  }
-
-  async rakuten({ query }) {
-    let page = 0;
-    let allItems = [];
-    let hasMore = true;
-    while (hasMore) {
-      page += 1;
-      const { data } = await this.request.get('/rakuten', {
-        params: {
-          page,
-          query,
-        }
-      });
-      allItems.push(...data.items)
-      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
-    }
-    return allItems;
-  }
- 
-  async mandarake({ query }) {
-    let page = 0;
-    let allItems = [];
-    let hasMore = true;
-    while (hasMore) {
-      page += 1;
-      const { data } = await this.request.get('/mandarake', {
-        params: {
-          page,
-          query,
-        }
-      });
-      allItems.push(...data.items)
-      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
-    }
-    return allItems;
-  }
 }
 
 module.exports = new SearchService()
