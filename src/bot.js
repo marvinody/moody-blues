@@ -214,6 +214,15 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
     const priceChanged = product.price !== item.price
     const oldPrice = product.price
 
+    // if price went up, price diff < 0
+    // if price went down, price diff > 0
+    const priceDifference = oldPrice - item.price
+    const priceDecreased = priceDifference > 0
+    // if it's a small change, we don't want to broadcast
+    if(priceDecreased && priceDifference <= 1000) {
+      return;
+    }
+
     if (item.price > 900000) {
       return;
     }
