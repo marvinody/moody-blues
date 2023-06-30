@@ -237,7 +237,7 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
 
     // a little confusing, but if a previous query updated a product, we want other queries to also know
     // they don't need to update the product again, but we need to send messages potentially
-    const isDirty = product.isDirty;
+    const isDirty = product.isdirty;
     // the negation makes it easier to reason if it's been touched yet
     const isClean = !isDirty
     // if it's a small change, we don't want to broadcast
