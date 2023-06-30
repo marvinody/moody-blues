@@ -4,6 +4,7 @@ const _ = require('lodash')
 const searchService = require('./services/searchService')
 const discordService = require('./services/discordService')
 const asyncPool = require('tiny-async-pool')
+const log = require('./util/logger')
 
 const groupPosts = (posts) => {
   const postsWithIdx = posts.map((p, idx) => ({ ...p, idx }));
@@ -144,6 +145,15 @@ async function main() {
 
   const postsToMake = [];
 
+  log.info(`Clearing up all previous dirty rows`);
+  await Product.update({
+    isdirty: false,
+  }, {
+    where: {
+      isdirty: true,
+    }
+  })
+
   const queries = await SearchQuery.findAll({
     include: [
       {
@@ -162,11 +172,11 @@ async function main() {
     }
 
   } catch (err) {
-    console.error(err);
+    log.error(err);
     await discordService.postError(err)
 
   } finally {
-    console.log(`Making ${postsToMake.length} posts`)
+    log.info(`Making ${postsToMake.length} posts`)
 
     const groupedPosts = groupPosts(postsToMake)
     for (let idx = 0; idx < groupedPosts.length; idx++) {
@@ -174,8 +184,8 @@ async function main() {
       try {
         await sendWebhook(post)
       } catch (err) {
-        console.error(`Uncaught error in webhook: ${err.message}`)
-        console.error(err.stack)
+        log.error(`Uncaught error in webhook: ${err.message}`)
+        log.error(err.stack)
       }
     }
   }
@@ -189,7 +199,12 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
 
   // make site dynamic and fetch all results instead of paging through
   // probably abstract to the service to let it do that
-  console.log(`${site} - ${desc} - "${query}"`)
+  const childLog = log.child({
+    site,
+    desc,
+    query,
+  })
+  childLog.info('Starting search')
   const items = await searchService.search(site, query)
 
   const handleItem = async (item) => {
@@ -208,6 +223,7 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
         siteProductId: item.siteCode,
         price: item.price,
         title: item.title,
+        isdirty: true,
       }
     })
 
@@ -218,8 +234,14 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
     // if price went down, price diff > 0
     const priceDifference = oldPrice - item.price
     const priceDecreased = priceDifference > 0
+
+    // a little confusing, but if a previous query updated a product, we want other queries to also know
+    // they don't need to update the product again, but we need to send messages potentially
+    const isDirty = product.isDirty;
+    // the negation makes it easier to reason if it's been touched yet
+    const isClean = !isDirty
     // if it's a small change, we don't want to broadcast
-    if(priceDecreased && priceDifference <= 1000) {
+    if(priceDecreased && priceDifference <= 1000 && isClean) {
       return;
     }
 
@@ -227,9 +249,10 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
       return;
     }
 
-    if (priceChanged) {
+    if (priceChanged && isClean) {
       await product.update({
-        price: item.price
+        price: item.price,
+        isdirty: true,
       })
     }
 
@@ -245,7 +268,7 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
         }
       })
 
-      if (created || priceChanged) {
+      if (created || priceChanged || isDirty) {
         postsToMake.push({
           webhookURL, item: {
             item,
@@ -259,7 +282,7 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
     return item
   }
 
-  console.log(`\thandling ${items.length} item(s)`)
+  childLog.info(`handling ${items.length} item(s)`)
   for await (const item of asyncPool(4, items, handleItem)) {
   }
 }
