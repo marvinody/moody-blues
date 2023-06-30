@@ -32,6 +32,8 @@ const db = new Sequelize(
 
 module.exports = db
 
+db.sync()
+
 // This is a global Mocha hook used for resource cleanup.
 // Otherwise, Mocha v4+ does not exit after tests.
 if (process.env.NODE_ENV === 'test') {

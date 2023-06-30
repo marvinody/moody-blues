@@ -18,6 +18,11 @@ const Product = db.define('product', {
     type: Sequelize.INTEGER,
     allowNull: false,
   },
+  isdirty: {
+    type: Sequelize.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  }
 })
 
 module.exports = Product
