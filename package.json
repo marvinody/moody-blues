@@ -7,7 +7,8 @@
     "dumb": "echo 'dumb shit'",
     "bot": "node src/bot",
     "discord-bot": "node src/discord-bot",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "NODE_ENV=test jest",
+    "test:dev": "npm run test -- --watch",
     "seed": "node src/util/seed",
     "add:schedule": "node src/util/addSchedule",
     "add:query": "node src/util/addQuery",
@@ -34,5 +35,9 @@
     "sequelize": "^6.9.0",
     "tiny-async-pool": "^2.1.0",
     "winston": "^3.9.0"
+  },
+  "devDependencies": {
+    "jest": "^29.5.0",
+    "sqlite3": "^5.1.6"
   }
 }

@@ -5,9 +5,18 @@ const searchService = require('./services/searchService')
 const discordService = require('./services/discordService')
 const asyncPool = require('tiny-async-pool')
 const log = require('./util/logger')
+const { cyrb53 } = require("./util/cyrb53")
 
 const groupPosts = (posts) => {
-  const postsWithIdx = posts.map((p, idx) => ({ ...p, idx }));
+  const dedupedPosts = _.uniqWith(posts, (a, b) => {
+    return a.item.item.siteCode === b.item.item.siteCode 
+    && a.webhookURL === b.webhookURL
+  });
+
+  const duplicatedPostCount = posts.length - dedupedPosts.length;
+  log.info(`Duped posts: ${duplicatedPostCount}`)
+
+  const postsWithIdx = dedupedPosts.map((p, idx) => ({ ...p, idx }));
 
   const groupedByWebhook = _.groupBy(postsWithIdx, 'webhookURL');
 
@@ -27,18 +36,6 @@ const groupPosts = (posts) => {
 
 }
 
-
-const cyrb53 = function (str, seed = 0) {
-  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0, ch; i < str.length; i++) {
-    ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
-};
 
 const formatToYen = (() => {
   const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'JPY' })
@@ -288,4 +285,12 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
 }
 
 
-main();
+module.exports = {
+  handleQuery,
+  groupPosts,
+}
+
+// this is a shitty way to do this for now, requires a quick refactor to pull out
+if(process.env.NODE_ENV !== 'test') {
+  main();
+}
