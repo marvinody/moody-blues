@@ -89,6 +89,7 @@ const action = async (bot, interaction) => {
   const scheduleCountInServer = await Schedule.count({
     where: {
       guildId,
+      enabled: true,
     }
   });
 
