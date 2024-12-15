@@ -1,5 +1,8 @@
 const axios = require('axios')
 const memoize = require("memoizee");
+const log = require('../util/logger');
+const discordService = require('./discordService');
+
 
 const MAX_LENGTH = 1500
 
@@ -39,18 +42,23 @@ class SearchService {
     let page = 0;
     let allItems = [];
     let hasMore = true;
-    while (hasMore) {
-      page += 1;
-      const { data } = await this.request.get(`/${site}`, {
-        params: {
-          page,
-          query,
-        }
-      });
-
-      // only push the sfw stuff
-      allItems.push(...data.items.filter(item => !item.nsfw))
-      hasMore = data.hasMore && allItems.length <= MAX_LENGTH
+    try {
+      while (hasMore) {
+        page += 1;
+        const { data } = await this.request.get(`/${site}`, {
+          params: {
+            page,
+            query,
+          }
+        });
+        
+        // only push the sfw stuff
+        allItems.push(...data.items.filter(item => !item.nsfw))
+        hasMore = data.hasMore && allItems.length <= MAX_LENGTH
+      }
+    } catch (err) {
+      log.error(err)
+      discordService.postError(err)
     }
     return allItems;
   }
