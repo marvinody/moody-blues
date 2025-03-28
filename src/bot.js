@@ -89,6 +89,42 @@ const _makeLashinBangEmbed = (lashinItem) => {
   }
 }
 
+const _makeMercariEmbed = (mercariItem) => {
+  const
+    fields = [
+      {
+        name: 'Price:',
+        value: formatToYen(mercariItem.price),
+        inline: false,
+      },
+    ]
+
+  // Mercari doesn't have a specific product page, just the listing
+  const description = `${mercariItem.title}\n【[Product Page](${mercariItem.url})】\n`
+  // if there's an auction property, it means it's an auction listing
+  fields.push({
+    name: 'type',
+    // type is all caps, but we want to display it in a more human readable format
+    // e.g. "AUCTION" -> "Auction"
+    value: mercariItem.type ? mercariItem.type.charAt(0).toUpperCase() + mercariItem.type.slice(1).toLowerCase() : 'N/A',
+    inline: true,
+  })
+
+  // if it's an auction, show total bids
+  if (mercariItem.type === 'AUCTION' && mercariItem.auction?.totalBids) {
+    fields.push({
+      name: 'Total Bids:',
+      value: mercariItem.totalBids.toString(),
+      inline: true,
+    })
+  }
+
+  return {
+    fields,
+    description,
+  }
+}
+
 const makeEmbed = ({ item, priceChanged, oldPrice, }) => {
   let siteEmbed = {};
   switch (item.site) {
@@ -97,6 +133,9 @@ const makeEmbed = ({ item, priceChanged, oldPrice, }) => {
       break;
     case 'LASHINBANG':
       siteEmbed = _makeLashinBangEmbed(item);
+      break;
+    case 'MERCARI':
+      siteEmbed = _makeMercariEmbed(item);
       break;
     default:
       siteEmbed = {
