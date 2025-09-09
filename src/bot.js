@@ -114,7 +114,7 @@ const _makeMercariEmbed = (mercariItem) => {
   if (mercariItem.type === 'AUCTION' && mercariItem.auction?.totalBids) {
     fields.push({
       name: 'Total Bids:',
-      value: mercariItem.totalBids.toString(),
+      value: mercariItem.auction?.totalBids.toString(),
       inline: true,
     })
   }
