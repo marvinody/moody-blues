@@ -61,8 +61,7 @@ const _makeYAJEmbed = (yajItem) => {
       inline: false,
     })
   }
-  const buyeeLink = yajItem.url.replace("page.auctions.yahoo.co.jp/jp",
-    "buyee.jp/item/yahoo")
+  const buyeeLink = `https://buyee.jp/top/search?query=${yajItem}`
   const description = `${yajItem.title}\n【[YAJ](${yajItem.url})】　【[Buyee](${buyeeLink})】\n`
 
   return {
