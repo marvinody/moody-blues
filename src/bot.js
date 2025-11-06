@@ -61,7 +61,7 @@ const _makeYAJEmbed = (yajItem) => {
       inline: false,
     })
   }
-  const buyeeLink = `https://buyee.jp/top/search?query=${yajItem}`
+  const buyeeLink = `https://buyee.jp/top/search?query=${yajItem.url}`
   const description = `${yajItem.title}\n【[YAJ](${yajItem.url})】　【[Buyee](${buyeeLink})】\n`
 
   return {
