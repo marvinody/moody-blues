@@ -23,6 +23,12 @@ const Product = db.define('product', {
     allowNull: false,
     defaultValue: false,
   }
+}, {
+  indexes: [
+    {
+      fields: ['site', 'siteProductId']
+    },
+  ]
 })
 
 module.exports = Product

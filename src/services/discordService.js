@@ -49,7 +49,8 @@ class DiscordService {
     } catch (err) {
       if (err?.response?.data?.retry_after) {
 
-        await sleep(err.response.data.retry_after);
+        // discord sends retry_after in seconds
+        await sleep(err.response.data.retry_after * 1000);
         return this.postWebhook({ webhookURL, embeds })
 
       } else if (err?.response?.status === 404) {
