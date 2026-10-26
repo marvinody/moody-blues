@@ -401,5 +401,9 @@ module.exports = {
 
 // this is a shitty way to do this for now, requires a quick refactor to pull out
 if(process.env.NODE_ENV !== 'test') {
-  main();
+  main().catch(err => {
+    log.error(`Fatal error: ${err.message}`)
+    log.error(err.stack)
+    process.exitCode = 1
+  });
 }

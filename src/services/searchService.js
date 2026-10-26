@@ -58,7 +58,7 @@ class SearchService {
       }
     } catch (err) {
       log.error(err)
-      discordService.postError(err)
+      await discordService.postError(err)
     }
     return allItems;
   }
