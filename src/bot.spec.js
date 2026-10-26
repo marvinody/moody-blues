@@ -99,6 +99,87 @@ describe(handleQuery, () => {
     })
   })
 
+  describe("Price changes", () => {
+    const setup = async ({ price, isdirty = false }) => {
+      const query = await SearchQuery.create({
+        site,
+        query: 'TEST-QUERY-1',
+      })
+
+      const schedule = await Schedule.create({
+        webhookURL: 'fake_url:1',
+        channelId: 1,
+        guildId: 1,
+        searchQueryId: query.id
+      })
+      query.schedules = [schedule];
+
+      const product = await Product.create({
+        site: fakeProduct1.site,
+        siteProductId: fakeProduct1.siteCode,
+        title: fakeProduct1.title,
+        price,
+        isdirty,
+      })
+      await PostedProduct.create({
+        productId: product.id,
+        scheduleId: schedule.id,
+      })
+
+      return { query, product }
+    }
+
+    test("Should post and update price if price went up", async () => {
+      searchService.search.mockResolvedValueOnce([fakeProduct1])
+      const { query, product } = await setup({ price: 500 })
+
+      const output = [];
+      await handleQuery(output)(query)
+
+      expect(output).toHaveLength(1)
+      expect(output[0].item).toMatchObject({ priceChanged: true, oldPrice: 500 })
+      await product.reload()
+      expect(product.price).toBe(fakeProduct1.price)
+      expect(product.isdirty).toBe(true)
+    })
+
+    test("Should not post or update on a small price decrease", async () => {
+      searchService.search.mockResolvedValueOnce([fakeProduct1])
+      const { query, product } = await setup({ price: 1500 })
+
+      const output = [];
+      await handleQuery(output)(query)
+
+      expect(output).toHaveLength(0)
+      await product.reload()
+      expect(product.price).toBe(1500)
+    })
+
+    test("Should post if another query already marked the product dirty", async () => {
+      searchService.search.mockResolvedValueOnce([fakeProduct1])
+      const { query } = await setup({ price: fakeProduct1.price, isdirty: true })
+
+      const output = [];
+      await handleQuery(output)(query)
+
+      expect(output).toHaveLength(1)
+    })
+
+    test("Should create a product once even if search returns it twice", async () => {
+      searchService.search.mockResolvedValueOnce([fakeProduct1, fakeProduct1])
+
+      const query = await SearchQuery.create({
+        site,
+        query: 'TEST-QUERY-1',
+      })
+      query.schedules = [];
+
+      await handleQuery([])(query)
+
+      expect(await Product.count()).toBe(1)
+    })
+  })
+
   describe("Reports correctly even if items are found on different queries", () => {
     test("Should create 2 posts if 2 schedules have 2 queries with same item (new)", async () => {
       searchService.search.mockResolvedValue([fakeProduct1]);

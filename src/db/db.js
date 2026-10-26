@@ -9,9 +9,11 @@ if (process.env.DATABASE_URL) {
   config = {
     logging: false,
     ssl: true,
-    acquire: 60000,
-    max: 100,
-    min: 0,
+    pool: {
+      acquire: 60000,
+      max: 10,
+      min: 0,
+    },
     dialectOptions: {
       ssl: {
         require: true,

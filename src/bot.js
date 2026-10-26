@@ -240,27 +240,25 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
     query,
   })
   childLog.info('Starting search')
-  const items = await searchService.search(site, query)
+  const searchResults = await searchService.search(site, query)
 
-  const handleItem = async (item) => {
-    // anything bigger crashes the bot because DB doesn't like and I'm not fixing because it's dumb...
-    if (item.price > 2 ** 31) {
-      return
-    }
+  // anything bigger crashes the bot because DB doesn't like and I'm not fixing because it's dumb...
+  // also dedupe so paging overlaps don't create the same product twice
+  const items = _.uniqBy(
+    searchResults.filter(item => item.price <= 2 ** 31),
+    item => productKey(item.site, item.siteCode),
+  )
 
-    const [product, _] = await Product.findOrCreate({
-      where: {
-        site: item.site,
-        siteProductId: item.siteCode,
-      },
-      defaults: {
-        site: item.site,
-        siteProductId: item.siteCode,
-        price: item.price,
-        title: item.title,
-        isdirty: true,
-      }
-    })
+  childLog.info(`handling ${items.length} item(s)`)
+
+  // look up every product for this query in a few big queries instead of one per item
+  const productsByKey = await findOrCreateProducts(items)
+
+  const itemsToPost = []
+  const productsToUpdate = []
+
+  for (const item of items) {
+    const product = productsByKey.get(productKey(item.site, item.siteCode))
 
     const priceChanged = product.price !== item.price
     const oldPrice = product.price
@@ -277,31 +275,39 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
     const isClean = !isDirty
     // if it's a small change, we don't want to broadcast
     if(priceDecreased && priceDifference <= 1000 && isClean) {
-      return;
+      continue;
     }
 
     if (item.price > 900000) {
-      return;
+      continue;
     }
 
     if (priceChanged && isClean) {
-      await product.update({
-        price: item.price,
-        isdirty: true,
-      })
+      productsToUpdate.push({ product, price: item.price })
     }
 
-    await Promise.all(schedules.map(async ({ id, webhookURL }) => {
-      const [_postedProduct, created] = await PostedProduct.findOrCreate({
-        where: {
-          productId: product.id,
-          scheduleId: id,
-        },
-        defaults: {
-          productId: product.id,
-          scheduleId: id,
-        }
-      })
+    itemsToPost.push({ item, product, priceChanged, oldPrice, isDirty })
+  }
+
+  // price changes are usually a small fraction of items, so individual updates are fine
+  for await (const _ of asyncPool(4, productsToUpdate, ({ product, price }) => product.update({
+    price,
+    isdirty: true,
+  }))) {
+  }
+
+  const alreadyPosted = await findPostedPairs(
+    itemsToPost.map(({ product }) => product.id),
+    schedules.map(({ id }) => id),
+  )
+
+  const postedProductsToCreate = []
+  for (const { item, product, priceChanged, oldPrice, isDirty } of itemsToPost) {
+    for (const { id, webhookURL } of schedules) {
+      const created = !alreadyPosted.has(postedKey(product.id, id))
+      if (created) {
+        postedProductsToCreate.push({ productId: product.id, scheduleId: id })
+      }
 
       if (created || priceChanged || isDirty) {
         postsToMake.push({
@@ -312,14 +318,79 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
           }
         })
       }
-    }))
-
-    return item
+    }
   }
 
-  childLog.info(`handling ${items.length} item(s)`)
-  for await (const item of asyncPool(4, items, handleItem)) {
+  for (const chunk of _.chunk(postedProductsToCreate, DB_CHUNK_SIZE)) {
+    await PostedProduct.bulkCreate(chunk, { ignoreDuplicates: true })
   }
+}
+
+// keeps IN (...) lists under sqlite's bound parameter limit and postgres query sizes sane
+const DB_CHUNK_SIZE = 500
+
+const productKey = (site, siteProductId) => `${site}\u0000${siteProductId}`
+const postedKey = (productId, scheduleId) => `${productId}:${scheduleId}`
+
+const findOrCreateProducts = async (items) => {
+  const productsByKey = new Map()
+  const sites = _.uniq(items.map(item => item.site))
+
+  for (const chunk of _.chunk(items, DB_CHUNK_SIZE)) {
+    const existing = await Product.findAll({
+      where: {
+        site: sites,
+        siteProductId: chunk.map(item => item.siteCode),
+      },
+      // if there are older duplicate rows, consistently use the oldest one
+      order: [['id', 'ASC']],
+    })
+    for (const product of existing) {
+      const key = productKey(product.site, product.siteProductId)
+      if (!productsByKey.has(key)) {
+        productsByKey.set(key, product)
+      }
+    }
+  }
+
+  const missing = items.filter(item => !productsByKey.has(productKey(item.site, item.siteCode)))
+  for (const chunk of _.chunk(missing, DB_CHUNK_SIZE)) {
+    const created = await Product.bulkCreate(chunk.map(item => ({
+      site: item.site,
+      siteProductId: item.siteCode,
+      price: item.price,
+      title: item.title,
+      isdirty: true,
+    })), { returning: true })
+    for (const product of created) {
+      productsByKey.set(productKey(product.site, product.siteProductId), product)
+    }
+  }
+
+  return productsByKey
+}
+
+const findPostedPairs = async (productIds, scheduleIds) => {
+  const posted = new Set()
+  if (productIds.length === 0 || scheduleIds.length === 0) {
+    return posted
+  }
+
+  for (const chunk of _.chunk(_.uniq(productIds), DB_CHUNK_SIZE)) {
+    const rows = await PostedProduct.findAll({
+      attributes: ['productId', 'scheduleId'],
+      where: {
+        productId: chunk,
+        scheduleId: scheduleIds,
+      },
+      raw: true,
+    })
+    for (const { productId, scheduleId } of rows) {
+      posted.add(postedKey(productId, scheduleId))
+    }
+  }
+
+  return posted
 }
 
 
