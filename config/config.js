@@ -1,26 +1,30 @@
 // Load environment variable from .env file
 require('dotenv').config();
+const pkg = require('../package.json')
 
-module.exports = {
-  development: {
-    username: process.env.DEV_DB_USERNAME,
-    password: process.env.DEV_DB_PASSWORD || null,
-    database: process.env.DEV_DB_NAME,
-    host: process.env.DEV_DB_HOST,
-    dialect: 'postgres'
-  },
-  test: {
-    username: process.env.TEST_DB_USERNAME,
-    password: process.env.TEST_DB_PASSWORD || null,
-    database: process.env.TEST_DB_NAME,
-    host: process.env.TEST_DB_HOST,
-    dialect: 'postgres'
-  },
-  production: {
-    username: process.env.PROD_DB_USERNAME,
-    password: process.env.PROD_DB_PASSWORD || null,
-    database: process.env.PROD_DB_NAME,
-    host: process.env.PROD_DB_HOST,
-    dialect: 'postgres'
+// mirror src/db/db.js so migrations hit the same database the bot uses
+const databaseName = pkg.name + (process.env.NODE_ENV === 'test' ? '-test' : '')
+
+const config = process.env.DATABASE_URL
+  ? {
+    url: process.env.DATABASE_URL,
+    dialect: 'postgres',
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    }
   }
+  : {
+    url: `postgres://localhost:5432/${databaseName}`,
+    dialect: 'postgres',
+  }
+
+// sequelize-cli looks up config by NODE_ENV, which isn't always one of the standard names (e.g. "dev")
+module.exports = {
+  development: config,
+  test: config,
+  production: config,
+  [process.env.NODE_ENV || 'development']: config,
 }
