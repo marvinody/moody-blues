@@ -7,6 +7,9 @@ const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
 const getId = webhook => webhook.slice('https://discord.com/api/webhooks/'.length).split('/')[0]
 
 const MAX_RATE_LIMIT_RETRIES = 5
+// longer waits than this mean we're banned for a while; drop the post instead of stalling the run
+const MAX_RATE_LIMIT_WAIT_MS = 60 * 1000
+const DISCORD_REQUEST_TIMEOUT_MS = 30 * 1000
 
 // returns ms to wait, or undefined if this isn't a rate limit
 const getRetryDelay = (err) => {
@@ -20,7 +23,7 @@ const getRetryDelay = (err) => {
 
 class DiscordService {
   constructor() {
-    this.request = axios.create({})
+    this.request = axios.create({ timeout: DISCORD_REQUEST_TIMEOUT_MS })
 
   }
 
@@ -34,6 +37,11 @@ class DiscordService {
         if (delay === undefined || attempt >= MAX_RATE_LIMIT_RETRIES) {
           throw err
         }
+        if (delay > MAX_RATE_LIMIT_WAIT_MS) {
+          log.warn(`Discord asked us to wait ${Math.round(delay / 1000)}s, giving up on this post`)
+          throw err
+        }
+        log.warn(`Rate limited by Discord, waiting ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`)
         await sleep(delay)
       }
     }
@@ -70,6 +78,7 @@ class DiscordService {
     await this._postToErrorWebhook(`Error for webhook: ${id}\n${err.toString()}`)
   }
 
+  // resolves true if discord accepted the post, false if it failed (already reported)
   async postWebhook({ webhookURL, embeds }) {
     try {
       const payload = {
@@ -77,23 +86,26 @@ class DiscordService {
         username: "Moody Blues",
         avatar_url: "https://i.imgur.com/egvX9g2.png",
       }
-      return await this._post(webhookURL, payload)
+      await this._post(webhookURL, payload)
+      return true
     } catch (err) {
       if (err?.response?.status === 404) {
 
         await Schedule.disableWebhook(webhookURL)
         if(process.env.ERROR_WEBHOOK) {
-          return this.postDisablingWebhook(err, webhookURL)
+          await this.postDisablingWebhook(err, webhookURL)
+        } else {
+          console.error(`Disabling webhook ${webhookURL}`)
         }
-        console.error(`Disabling webhook ${webhookURL}`)
 
       } else {
         if (process.env.ERROR_WEBHOOK) {
-          return this.postGenericErrorWebhook(err, webhookURL);
+          await this.postGenericErrorWebhook(err, webhookURL);
         } else {
           console.error(err)
         }
       }
+      return false
     }
   }
 }

@@ -23,6 +23,10 @@ module.exports = {
   // requests to the same site run one at a time, with this gap after each one finishes
   SEARCH_DELAY_BETWEEN_REQUESTS_PER_SITE_MS: fromEnv('SEARCH_DELAY_BETWEEN_REQUESTS_PER_SITE_MS', 3000),
 
+  // give up on a rem request that hasn't answered in this long, so one stuck request
+  // can't block that site's queue (and the whole run) forever
+  SEARCH_REQUEST_TIMEOUT_MS: fromEnv('SEARCH_REQUEST_TIMEOUT_MS', 60000),
+
   // random extra wait (0 to this value) added to each gap so requests don't look machine-timed
   SEARCH_RANDOM_EXTRA_DELAY_MAX_MS: fromEnv('SEARCH_RANDOM_EXTRA_DELAY_MAX_MS', 2000),
 }

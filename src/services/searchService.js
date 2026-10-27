@@ -10,6 +10,7 @@ class SearchService {
   constructor() {
     this.request = axios.create({
       baseURL: process.env.SEARCH_API,
+      timeout: searchSettings.SEARCH_REQUEST_TIMEOUT_MS,
       headers: {
         'api-key': process.env.API_KEY
       }
