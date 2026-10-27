@@ -1,10 +1,7 @@
 // Tuning for how hard we hit the rem search service.
 // Each value can be overridden with the env var of the same name.
 
-const fromEnv = (name, fallback) => {
-  const value = Number(process.env[name])
-  return Number.isFinite(value) && process.env[name] !== '' ? value : fallback
-}
+const fromEnv = require('./fromEnv')
 
 module.exports = {
   // pages fetched per search query each run, for sites rem doesn't sort by newest
