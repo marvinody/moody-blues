@@ -78,6 +78,7 @@ class DiscordService {
     await this._postToErrorWebhook(`Error for webhook: ${id}\n${err.toString()}`)
   }
 
+  // resolves true if discord accepted the post, false if it failed (already reported)
   async postWebhook({ webhookURL, embeds }) {
     try {
       const payload = {
@@ -85,23 +86,26 @@ class DiscordService {
         username: "Moody Blues",
         avatar_url: "https://i.imgur.com/egvX9g2.png",
       }
-      return await this._post(webhookURL, payload)
+      await this._post(webhookURL, payload)
+      return true
     } catch (err) {
       if (err?.response?.status === 404) {
 
         await Schedule.disableWebhook(webhookURL)
         if(process.env.ERROR_WEBHOOK) {
-          return this.postDisablingWebhook(err, webhookURL)
+          await this.postDisablingWebhook(err, webhookURL)
+        } else {
+          console.error(`Disabling webhook ${webhookURL}`)
         }
-        console.error(`Disabling webhook ${webhookURL}`)
 
       } else {
         if (process.env.ERROR_WEBHOOK) {
-          return this.postGenericErrorWebhook(err, webhookURL);
+          await this.postGenericErrorWebhook(err, webhookURL);
         } else {
           console.error(err)
         }
       }
+      return false
     }
   }
 }
