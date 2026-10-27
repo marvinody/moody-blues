@@ -26,6 +26,7 @@ const Product = db.define('product', {
 }, {
   indexes: [
     {
+      unique: true,
       fields: ['site', 'siteProductId']
     },
   ]

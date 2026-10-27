@@ -326,8 +326,7 @@ const DB_CHUNK_SIZE = 500
 const productKey = (site, siteProductId) => `${site}\u0000${siteProductId}`
 const postedKey = (productId, scheduleId) => `${productId}:${scheduleId}`
 
-const findOrCreateProducts = async (items) => {
-  const productsByKey = new Map()
+const findProducts = async (items, productsByKey) => {
   const sites = _.uniq(items.map(item => item.site))
 
   for (const chunk of _.chunk(items, DB_CHUNK_SIZE)) {
@@ -336,29 +335,33 @@ const findOrCreateProducts = async (items) => {
         site: sites,
         siteProductId: chunk.map(item => item.siteCode),
       },
-      // if there are older duplicate rows, consistently use the oldest one
-      order: [['id', 'ASC']],
     })
     for (const product of existing) {
-      const key = productKey(product.site, product.siteProductId)
-      if (!productsByKey.has(key)) {
-        productsByKey.set(key, product)
-      }
+      productsByKey.set(productKey(product.site, product.siteProductId), product)
     }
   }
+}
 
-  const missing = items.filter(item => !productsByKey.has(productKey(item.site, item.siteCode)))
+const findOrCreateProducts = async (items) => {
+  const productsByKey = new Map()
+  const isMissing = item => !productsByKey.has(productKey(item.site, item.siteCode))
+
+  await findProducts(items, productsByKey)
+
+  const missing = items.filter(isMissing)
   for (const chunk of _.chunk(missing, DB_CHUNK_SIZE)) {
-    const created = await Product.bulkCreate(chunk.map(item => ({
+    // another query running at the same time may insert the same product first;
+    // skip those instead of failing on the unique index
+    await Product.bulkCreate(chunk.map(item => ({
       site: item.site,
       siteProductId: item.siteCode,
       price: item.price,
       title: item.title,
-    })), { returning: true })
-    for (const product of created) {
-      productsByKey.set(productKey(product.site, product.siteProductId), product)
-    }
+    })), { ignoreDuplicates: true })
   }
+
+  // load the rows just inserted (by us or the other query) to get their ids
+  await findProducts(missing, productsByKey)
 
   return productsByKey
 }
