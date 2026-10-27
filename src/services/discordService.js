@@ -1,5 +1,4 @@
 const axios = require('axios')
-const { Schedule } = require('../db/models')
 const log = require('../util/logger')
 
 const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
@@ -19,6 +18,30 @@ const getRetryDelay = (err) => {
   // Retry-After header is always seconds; fall back to the body (seconds on current API versions)
   const seconds = Number(err.response.headers?.['retry-after'] ?? err.response.data?.retry_after)
   return Number.isFinite(seconds) ? seconds * 1000 : 1000
+}
+
+const numberHeader = (headers, name) => {
+  const value = Number(headers?.[name])
+  return headers?.[name] !== undefined && Number.isFinite(value) ? value : undefined
+}
+
+// what discord's headers say about this webhook's limit, after a success or a 429
+const rateLimitInfo = (response) => {
+  const resetAfterSeconds = numberHeader(response?.headers, 'x-ratelimit-reset-after')
+  return {
+    remaining: numberHeader(response?.headers, 'x-ratelimit-remaining'),
+    resetAfterMs: resetAfterSeconds === undefined ? undefined : resetAfterSeconds * 1000,
+  }
+}
+
+// a 429 that isn't scoped to one webhook (or has no discord headers at all, like a
+// cloudflare block) means every request is blocked, not just this webhook
+const isGlobalRateLimit = (response) => {
+  const headers = response?.headers ?? {}
+  return response?.data?.global === true
+    || headers['x-ratelimit-global'] === 'true'
+    || headers['x-ratelimit-scope'] === 'global'
+    || (headers['x-ratelimit-bucket'] === undefined && headers['x-ratelimit-scope'] === undefined)
 }
 
 class DiscordService {
@@ -78,34 +101,29 @@ class DiscordService {
     await this._postToErrorWebhook(`Error for webhook: ${id}\n${err.toString()}`)
   }
 
-  // resolves true if discord accepted the post, false if it failed (already reported)
-  async postWebhook({ webhookURL, embeds }) {
+  webhookId(webhookURL) {
+    return getId(webhookURL)
+  }
+
+  // sends one webhook message with no retries; the sender service decides what to do with the result
+  async sendWebhook(webhookURL, embeds) {
     try {
-      const payload = {
+      const response = await this.request.post(webhookURL, {
         embeds,
         username: "Moody Blues",
         avatar_url: "https://i.imgur.com/egvX9g2.png",
-      }
-      await this._post(webhookURL, payload)
-      return true
+      })
+      return { ok: true, status: response.status, ...rateLimitInfo(response) }
     } catch (err) {
-      if (err?.response?.status === 404) {
-
-        await Schedule.disableWebhook(webhookURL)
-        if(process.env.ERROR_WEBHOOK) {
-          await this.postDisablingWebhook(err, webhookURL)
-        } else {
-          console.error(`Disabling webhook ${webhookURL}`)
-        }
-
-      } else {
-        if (process.env.ERROR_WEBHOOK) {
-          await this.postGenericErrorWebhook(err, webhookURL);
-        } else {
-          console.error(err)
-        }
+      const status = err?.response?.status
+      return {
+        ok: false,
+        status,
+        error: err,
+        retryAfterMs: getRetryDelay(err),
+        isGlobal: status === 429 && isGlobalRateLimit(err.response),
+        ...rateLimitInfo(err?.response),
       }
-      return false
     }
   }
 }

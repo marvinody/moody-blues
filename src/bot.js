@@ -1,203 +1,24 @@
 require('dotenv').config()
-const { Schedule, SearchQuery, PostedProduct, Product } = require('./db/models')
+const db = require('./db')
+const { Schedule, SearchQuery, PostedProduct, Product, QueuedPost } = require('./db/models')
 const _ = require('lodash')
 const searchService = require('./services/searchService')
 const discordService = require('./services/discordService')
 const asyncPool = require('tiny-async-pool')
 const log = require('./util/logger')
-const { cyrb53 } = require("./util/cyrb53")
+const { QUEUE_NOTIFY_CHANNEL } = require('./sender/queue')
 
-const groupPosts = (posts) => {
-  // same item for the same webhook (e.g. two schedules sharing a channel) is posted once,
-  // but every schedule's record is kept so they're all marked as posted
-  const postsByKey = new Map()
-  for (const post of posts) {
-    const key = `${post.webhookURL}\u0000${post.item.item.siteCode}`
-    const existing = postsByKey.get(key)
-    if (existing) {
-      existing.records.push(...(post.records ?? []))
-    } else {
-      postsByKey.set(key, { ...post, records: [...(post.records ?? [])] })
-    }
-  }
-  const dedupedPosts = [...postsByKey.values()]
-
-  const duplicatedPostCount = posts.length - dedupedPosts.length;
-  log.info(`Duped posts: ${duplicatedPostCount}`)
-
-  const postsWithIdx = dedupedPosts.map((p, idx) => ({ ...p, idx }));
-
-  const groupedByWebhook = _.groupBy(postsWithIdx, 'webhookURL');
-
-  const chunkedByWebhook = _.mapValues(groupedByWebhook, x => _.chunk(x, 10))
-
-  const flattened = _.flatMap(chunkedByWebhook)
-
-  // use lowest idx in each chunk to determine sorting
-  const sortedByPrio = _.sortBy(flattened, [l => Math.min(..._.map(l, 'idx'))])
-
-  const remappedPosts = _.map(sortedByPrio, chunk => ({
-    webhookURL: chunk[0].webhookURL,
-    items: _.map(chunk, 'item'),
-    records: _.flatMap(chunk, 'records'),
-  }))
-
-  return remappedPosts
-
-}
-
-
-const formatToYen = (() => {
-  const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'JPY' })
-
-  return (n) => formatter.format(n)
-})();
-
-const _makeYAJEmbed = (yajItem) => {
-  const
-    fields = [];
-  if (yajItem.type === 'AUCTION' || yajItem.type === 'AUCTION_WITH_BUYOUT') {
-    fields.push({
-      name: 'Current Price:',
-      value: formatToYen(yajItem.price),
-      inline: false,
-    })
+// adds posts to the queue for the sender service; a post that's still waiting is updated
+// in place (latest price wins) instead of being queued twice
+const enqueuePosts = async (posts) => {
+  const rows = _.uniqBy(posts, ({ productId, scheduleId }) => postedKey(productId, scheduleId))
+  for (const chunk of _.chunk(rows, DB_CHUNK_SIZE)) {
+    await QueuedPost.bulkCreate(chunk, { updateOnDuplicate: ['webhookURL', 'payload', 'price', 'updatedAt'] })
   }
 
-  if (yajItem.type === 'BUYOUT' || yajItem.type === 'AUCTION_WITH_BUYOUT') {
-    fields.push({
-      name: 'Buy It Now For:',
-      value: formatToYen(yajItem.buyoutPrice),
-      inline: false,
-    })
-  }
-  const buyeeLink = `https://buyee.jp/top/search?query=${yajItem.url}`
-  const description = `${yajItem.title}\n【[YAJ](${yajItem.url})】　【[Buyee](${buyeeLink})】\n`
-
-  return {
-    fields,
-    description,
-  }
-}
-
-const _makeLashinBangEmbed = (lashinItem) => {
-  const
-    fields = [
-      {
-        name: 'Price:',
-        value: formatToYen(lashinItem.price),
-        inline: false,
-      },
-    ]
-
-  const description = `${lashinItem.title}\n【[Product Page](${lashinItem.url})】\n`
-
-  return {
-    fields,
-    description,
-  }
-}
-
-const _makeMercariEmbed = (mercariItem) => {
-  const
-    fields = [
-      {
-        name: 'Price:',
-        value: formatToYen(mercariItem.price),
-        inline: false,
-      },
-    ]
-
-  // Mercari doesn't have a specific product page, just the listing
-  const description = `${mercariItem.title}\n【[Product Page](${mercariItem.url})】\n`
-  // if there's an auction property, it means it's an auction listing
-  fields.push({
-    name: 'type',
-    // type is all caps, but we want to display it in a more human readable format
-    // e.g. "AUCTION" -> "Auction"
-    value: mercariItem.type ? mercariItem.type.charAt(0).toUpperCase() + mercariItem.type.slice(1).toLowerCase() : 'N/A',
-    inline: true,
-  })
-
-  // if it's an auction, show total bids
-  if (mercariItem.type === 'AUCTION' && mercariItem.auction?.totalBids) {
-    fields.push({
-      name: 'Total Bids:',
-      value: mercariItem.auction?.totalBids.toString(),
-      inline: true,
-    })
-  }
-
-  return {
-    fields,
-    description,
-  }
-}
-
-const makeEmbed = ({ item, priceChanged, oldPrice, }) => {
-  let siteEmbed = {};
-  switch (item.site) {
-    case 'YAJ':
-      siteEmbed = _makeYAJEmbed(item);
-      break;
-    case 'LASHINBANG':
-      siteEmbed = _makeLashinBangEmbed(item);
-      break;
-    case 'MERCARI':
-      siteEmbed = _makeMercariEmbed(item);
-      break;
-    default:
-      siteEmbed = {
-        fields: [
-          {
-            name: 'Price:',
-            value: formatToYen(item.price),
-            inline: false,
-          },
-        ]
-      };
-  }
-
-  if (priceChanged && siteEmbed.fields) {
-    siteEmbed.fields.push({
-      name: 'Old Price:',
-      value: formatToYen(oldPrice),
-      inline: false,
-    })
-  }
-
-  return {
-    color: cyrb53(item.siteCode) & 0xffffff,
-    title: `【${item.site}】 - ${item.siteCode}`,
-    description: item.title,
-    url: item.url,
-    image: {
-      url: item.imageURL,
-    },
-    ...siteEmbed,
-    footer: {
-      text: 'Moody Blues'
-    }
-  }
-}
-
-// returns true only if discord accepted the post
-const sendWebhook = async ({ webhookURL, items }) => {
-  const embeds = items.map(makeEmbed)
-  return discordService.postWebhook({ webhookURL, embeds })
-}
-
-const sendPosts = async (groupedPosts) => {
-  for (let idx = 0; idx < groupedPosts.length; idx++) {
-    const post = groupedPosts[idx];
-    try {
-      if (await sendWebhook(post)) {
-        await recordPosted(post.records)
-      }
-    } catch (err) {
-      log.error(`Uncaught error in webhook: ${err.message}`)
-      log.error(err.stack)
-    }
+  if (rows.length > 0 && db.getDialect() === 'postgres') {
+    // wake the sender right away instead of waiting for its next poll
+    await db.query(`SELECT pg_notify('${QUEUE_NOTIFY_CHANNEL}', '')`)
   }
 }
 
@@ -227,9 +48,8 @@ async function main() {
     await discordService.postError(err)
 
   } finally {
-    log.info(`Making ${postsToMake.length} posts`)
-
-    await sendPosts(groupPosts(postsToMake))
+    log.info(`Queueing ${postsToMake.length} posts`)
+    await enqueuePosts(postsToMake)
   }
 
 }
@@ -289,15 +109,18 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
       }
 
       if (neverPosted || priceChanged) {
+        // postedProducts is only written once the sender gets this through to discord,
+        // so anything unsent is found and queued again next run
         postsToMake.push({
+          productId: product.id,
+          scheduleId: id,
           webhookURL,
-          item: {
+          price: item.price,
+          payload: {
             item,
             priceChanged,
             oldPrice,
           },
-          // only written once discord accepts the post, so a killed or failed run reposts next time
-          records: [{ productId: product.id, scheduleId: id, price: item.price }],
         })
       }
     }
@@ -308,15 +131,6 @@ const handleQuery = (postsToMake) => async (queryEntry) => {
   for await (const _ of asyncPool(4, productsToUpdate, ({ item, product }) => product.update({
     price: item.price,
   }))) {
-  }
-}
-
-// records which products each schedule has been shown, and at what price, after a successful post
-const recordPosted = async (records) => {
-  // the same product/schedule pair can't appear twice in one upsert
-  const uniqueRecords = _.uniqBy(records, ({ productId, scheduleId }) => postedKey(productId, scheduleId))
-  for (const chunk of _.chunk(uniqueRecords, DB_CHUNK_SIZE)) {
-    await PostedProduct.bulkCreate(chunk, { updateOnDuplicate: ['price', 'updatedAt'] })
   }
 }
 
@@ -393,8 +207,7 @@ const findLastPostedPrices = async (productIds, scheduleIds) => {
 
 module.exports = {
   handleQuery,
-  groupPosts,
-  sendPosts,
+  enqueuePosts,
 }
 
 // this is a shitty way to do this for now, requires a quick refactor to pull out

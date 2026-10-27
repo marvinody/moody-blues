@@ -7,6 +7,7 @@
     "dumb": "echo 'dumb shit'",
     "bot": "node src/bot",
     "discord-bot": "node src/discord-bot",
+    "sender": "node src/sender",
     "test": "NODE_ENV=test jest",
     "test:dev": "npm run test -- --watch",
     "seed": "node src/util/seed",

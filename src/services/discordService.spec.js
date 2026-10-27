@@ -24,41 +24,50 @@ describe('discordService', () => {
     expect(discordService.request.post).toHaveBeenCalledTimes(2)
   })
 
-  describe('postWebhook result', () => {
-    const { Schedule } = require('../db/models')
-    const httpError = (status) => Object.assign(new Error(`Request failed with status code ${status}`), {
-      response: { status, headers: {}, data: {} },
+  describe('sendWebhook', () => {
+    const httpError = (status, { headers = {}, data = {} } = {}) => Object.assign(new Error(`Request failed with status code ${status}`), {
+      response: { status, headers, data },
     })
 
-    afterEach(() => {
-      jest.restoreAllMocks()
-      delete process.env.ERROR_WEBHOOK
-    })
-
-    test('Should resolve true when discord accepts the post', async () => {
-      discordService.request.post = jest.fn().mockResolvedValue({ data: {} })
-
-      await expect(discordService.postWebhook({ webhookURL: 'fake_url', embeds: [] })).resolves.toBe(true)
-    })
-
-    test('Should resolve false and disable the webhook on a 404', async () => {
-      discordService.request.post = jest.fn().mockRejectedValue(httpError(404))
-      const disable = jest.spyOn(Schedule, 'disableWebhook').mockResolvedValue()
-      jest.spyOn(console, 'error').mockImplementation(() => {})
-
-      await expect(discordService.postWebhook({ webhookURL: 'fake_url', embeds: [] })).resolves.toBe(false)
-      expect(disable).toHaveBeenCalledWith('fake_url')
-    })
-
-    test('Should resolve false on other errors, even when the error report succeeds', async () => {
-      process.env.ERROR_WEBHOOK = 'error_url'
-      discordService.request.post = jest.fn(async (url) => {
-        if (url === 'error_url') return { data: {} }
-        throw httpError(500)
+    test('Should report success with the remaining rate limit', async () => {
+      discordService.request.post = jest.fn().mockResolvedValue({
+        status: 204,
+        headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset-after': '1.5' },
       })
 
-      await expect(discordService.postWebhook({ webhookURL: 'fake_url', embeds: [] })).resolves.toBe(false)
-      expect(discordService.request.post).toHaveBeenCalledWith('error_url', expect.anything())
+      await expect(discordService.sendWebhook('fake_url', [])).resolves.toMatchObject({
+        ok: true, remaining: 0, resetAfterMs: 1500,
+      })
+      expect(discordService.request.post).toHaveBeenCalledTimes(1)
+    })
+
+    test('Should not retry, and report a webhook-scoped 429', async () => {
+      discordService.request.post = jest.fn().mockRejectedValue(httpError(429, {
+        headers: { 'retry-after': '3', 'x-ratelimit-scope': 'user', 'x-ratelimit-bucket': 'abc' },
+        data: { retry_after: 2.5, global: false },
+      }))
+
+      await expect(discordService.sendWebhook('fake_url', [])).resolves.toMatchObject({
+        ok: false, status: 429, retryAfterMs: 3000, isGlobal: false,
+      })
+      expect(discordService.request.post).toHaveBeenCalledTimes(1)
+    })
+
+    test('Should treat a global 429 or one without discord headers as global', async () => {
+      discordService.request.post = jest.fn()
+        .mockRejectedValueOnce(httpError(429, { headers: { 'retry-after': '1800', 'x-ratelimit-global': 'true' }, data: { global: true } }))
+        .mockRejectedValueOnce(httpError(429, { headers: { 'retry-after': '1800' }, data: '<html>' }))
+
+      await expect(discordService.sendWebhook('fake_url', [])).resolves.toMatchObject({ isGlobal: true })
+      await expect(discordService.sendWebhook('fake_url', [])).resolves.toMatchObject({ isGlobal: true })
+    })
+
+    test('Should report other failures with their status', async () => {
+      discordService.request.post = jest.fn().mockRejectedValue(httpError(404))
+
+      const result = await discordService.sendWebhook('fake_url', [])
+      expect(result).toMatchObject({ ok: false, status: 404, isGlobal: false })
+      expect(result.error.message).toContain('404')
     })
   })
 
