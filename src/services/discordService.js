@@ -7,6 +7,9 @@ const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
 const getId = webhook => webhook.slice('https://discord.com/api/webhooks/'.length).split('/')[0]
 
 const MAX_RATE_LIMIT_RETRIES = 5
+// longer waits than this mean we're banned for a while; drop the post instead of stalling the run
+const MAX_RATE_LIMIT_WAIT_MS = 60 * 1000
+const DISCORD_REQUEST_TIMEOUT_MS = 30 * 1000
 
 // returns ms to wait, or undefined if this isn't a rate limit
 const getRetryDelay = (err) => {
@@ -20,7 +23,7 @@ const getRetryDelay = (err) => {
 
 class DiscordService {
   constructor() {
-    this.request = axios.create({})
+    this.request = axios.create({ timeout: DISCORD_REQUEST_TIMEOUT_MS })
 
   }
 
@@ -34,6 +37,11 @@ class DiscordService {
         if (delay === undefined || attempt >= MAX_RATE_LIMIT_RETRIES) {
           throw err
         }
+        if (delay > MAX_RATE_LIMIT_WAIT_MS) {
+          log.warn(`Discord asked us to wait ${Math.round(delay / 1000)}s, giving up on this post`)
+          throw err
+        }
+        log.warn(`Rate limited by Discord, waiting ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`)
         await sleep(delay)
       }
     }
