@@ -7,8 +7,15 @@ const fromEnv = (name, fallback) => {
 }
 
 module.exports = {
-  // pages fetched per search query each run; new listings show up on the first pages
-  SEARCH_MAX_PAGES_PER_QUERY: fromEnv('SEARCH_MAX_PAGES_PER_QUERY', 2),
+  // pages fetched per search query each run, for sites rem doesn't sort by newest
+  // (new listings can be on any page, so these need to go deeper)
+  SEARCH_MAX_PAGES_PER_QUERY: fromEnv('SEARCH_MAX_PAGES_PER_QUERY', 10),
+
+  // per-site overrides of SEARCH_MAX_PAGES_PER_QUERY, keyed by site name as stored on search queries.
+  // rem sorts YAJ by newest, so new listings are always on the first pages
+  SEARCH_MAX_PAGES_PER_QUERY_BY_SITE: {
+    YAJ: fromEnv('SEARCH_MAX_PAGES_PER_QUERY_YAJ', 2),
+  },
 
   // hard cap on items kept per search query, in case pages are huge
   SEARCH_MAX_ITEMS_PER_QUERY: fromEnv('SEARCH_MAX_ITEMS_PER_QUERY', 1500),

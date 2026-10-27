@@ -25,17 +25,17 @@ class SearchService {
   async search(service, query) {
     switch (service) {
       case 'YAJ':
-        return this._searchHelper({ query, site: 'yaj' })
+        return this._searchHelper({ query, site: 'yaj', service })
       case 'MERCARI':
-        return this._searchHelper({ query, site: 'mercari' })
+        return this._searchHelper({ query, site: 'mercari', service })
       case 'LASHINBANG':
-        return this._searchHelper({ query, site: 'lashinbang' })
+        return this._searchHelper({ query, site: 'lashinbang', service })
         case 'RAKUTEN':
-          return this._searchHelper({ query, site: 'rakuten' })
+          return this._searchHelper({ query, site: 'rakuten', service })
       case 'MANDARAKE':
-        return this._searchHelper({ query, site: 'mandarake' })
+        return this._searchHelper({ query, site: 'mandarake', service })
       case 'SURUGAYA':
-        return this._searchHelper({ query, site: 'surugaya' })
+        return this._searchHelper({ query, site: 'surugaya', service })
       default:
         return Promise.reject(new Error(`No resolver for search: "${service}"`));
     }
@@ -54,7 +54,13 @@ class SearchService {
     return run
   }
 
-  async _searchHelper({query, site}) {
+  _maxPagesFor(service) {
+    return searchSettings.SEARCH_MAX_PAGES_PER_QUERY_BY_SITE[service]
+      ?? searchSettings.SEARCH_MAX_PAGES_PER_QUERY
+  }
+
+  async _searchHelper({query, site, service}) {
+    const maxPages = this._maxPagesFor(service);
     let page = 0;
     let allItems = [];
     let hasMore = true;
@@ -71,7 +77,7 @@ class SearchService {
         // only push the sfw stuff
         allItems.push(...data.items.filter(item => !item.nsfw))
         hasMore = data.hasMore
-          && page < searchSettings.SEARCH_MAX_PAGES_PER_QUERY
+          && page < maxPages
           && allItems.length <= searchSettings.SEARCH_MAX_ITEMS_PER_QUERY
       }
     } catch (err) {
